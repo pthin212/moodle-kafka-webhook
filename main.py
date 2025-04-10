@@ -8,6 +8,10 @@ import ssl
 
 app = FastAPI()
 
+@app.get("/")
+async def root():
+    return {"message": "Hii from Render!"}
+
 async def create_kafka_producer():
     ssl_context = None
     if kafka_config.security_protocol in ["SSL", "SASL_SSL"]:
