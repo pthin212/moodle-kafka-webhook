@@ -9,6 +9,7 @@ import ssl
 app = FastAPI()
 
 @app.get("/")
+@app.head("/")
 async def root():
     return {"message": "Hii from Render!"}
 
@@ -45,6 +46,8 @@ async def shutdown_event():
 @app.post("/webhook")
 async def handle_webhook(request: Request):
     auth_token = request.headers.get("Authorization", "").split(" ")[-1]
+    print(f"Received token: {auth_token}")
+    print(f"Expected token: {app_settings.webhook_token}")
     if auth_token != app_settings.webhook_token:
         raise HTTPException(status_code=403, detail="Invalid token")
 
