@@ -1,28 +1,42 @@
 from fastapi import FastAPI, Request, HTTPException
-from kafka import KafkaProducer
 import json
+import asyncio
+from aiokafka import AIOKafkaProducer
 from config.kafka_config import kafka_config
 from config.settings import app_settings
+import ssl
 
 app = FastAPI()
 
-producer = KafkaProducer(
-    bootstrap_servers=kafka_config.bootstrap_servers.split(","),
-    security_protocol=kafka_config.security_protocol,
-    sasl_mechanism=kafka_config.sasl_mechanism,
-    sasl_plain_username=kafka_config.sasl_plain_username,
-    sasl_plain_password=kafka_config.sasl_plain_password.get_secret_value(),
-    value_serializer=lambda v: json.dumps(v).encode("utf-8")
-)
+async def create_kafka_producer():
+    ssl_context = None
+    if kafka_config.security_protocol in ["SSL", "SASL_SSL"]:
+        ssl_context = ssl.create_default_context()
+        ssl_context.check_hostname = False
+        ssl_context.verify_mode = ssl.CERT_NONE
 
-def get_topic(event_type: str) -> str:
-    event_mapping = {
-        "course_viewed": "moodle_course_views",
-        "user_loggedin": "moodle_user_logins",
-        "user_loggedout": "moodle_user_logouts",
-    }
-    short_name = event_type.split("\\")[-1]
-    return event_mapping.get(short_name, kafka_config.topic_target)
+    producer = AIOKafkaProducer(
+        bootstrap_servers=kafka_config.bootstrap_servers.split(","),
+        security_protocol=kafka_config.security_protocol,
+        ssl_context=ssl_context,
+        sasl_mechanism=kafka_config.sasl_mechanism,
+        sasl_plain_username=kafka_config.sasl_plain_username,
+        sasl_plain_password=kafka_config.sasl_plain_password.get_secret_value(),
+        value_serializer=lambda v: json.dumps(v).encode("utf-8")
+    )
+    await producer.start()
+    return producer
+
+async def close_kafka_producer(producer: AIOKafkaProducer):
+    await producer.stop()
+
+@app.on_event("startup")
+async def startup_event():
+    app.state.kafka_producer = await create_kafka_producer()
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    await close_kafka_producer(app.state.kafka_producer)
 
 @app.post("/webhook")
 async def handle_webhook(request: Request):
@@ -31,9 +45,8 @@ async def handle_webhook(request: Request):
         raise HTTPException(status_code=403, detail="Invalid token")
 
     payload = await request.json()
-    topic = get_topic(payload.get("eventtype", ""))
-    producer.send(topic, value=payload)
-
+    topic = kafka_config.topic_target
+    await app.state.kafka_producer.send(topic, value=payload)  # Gửi Kafka bất đồng bộ
     return {"status": "success", "topic": topic}
 
 if __name__ == "__main__":

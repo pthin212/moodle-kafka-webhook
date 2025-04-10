@@ -7,11 +7,11 @@ load_dotenv()
 
 class KafkaConfig(BaseSettings):
     bootstrap_servers: str
-    security_protocol: str = "SASL_PLAINTEXT"
+    security_protocol: str = "SASL_SSL"
     sasl_mechanism: str = "PLAIN"
     sasl_plain_username: str
     sasl_plain_password: SecretStr
-    topic_target: str = "kafka_p1"
+    topic_target: str = "moodle_events"
 
     @field_validator("bootstrap_servers", "sasl_plain_username", "sasl_plain_password")
     @classmethod
