@@ -45,6 +45,19 @@ async def shutdown_event():
 
 @app.post("/webhook")
 async def handle_webhook(request: Request):
+    print("--- Headers ---")
+    for key, value in request.headers.items():
+        print(f"{key}: {value}")
+
+    try:
+        payload = await request.json()
+        print("--- Body ---")
+        print(json.dumps(payload, indent=4))  # In body đã định dạng
+    except json.JSONDecodeError:
+        print("--- Body (Raw) ---")
+        body = await request.body()
+        print(body.decode("utf-8"))
+
     auth_token = request.headers.get("Authorization", "").split(" ")[-1]
     print(f"Received token: {auth_token}")
     print(f"Expected token: {app_settings.webhook_token}")
