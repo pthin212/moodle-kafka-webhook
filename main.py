@@ -46,10 +46,10 @@ async def shutdown_event():
 @app.post("/webhook")
 async def handle_webhook(request: Request):
     payload = await request.json()
-    auth_token = payload.get("token")
+    # auth_token = payload.get("token")
 
-    if auth_token != app_settings.webhook_token:
-        raise HTTPException(status_code=403, detail="Invalid token")
+    # if auth_token != app_settings.webhook_token:
+    #     raise HTTPException(status_code=403, detail="Invalid token")
 
     topic = kafka_config.topic_target
     await app.state.kafka_producer.send(topic, value=payload)
